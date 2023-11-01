@@ -4,13 +4,14 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
-	_ "github.com/go-sql-driver/mysql"
-	"github.com/gorilla/mux"
 	"learnathon/config"
 	"learnathon/function"
 	"log"
 	"net/http"
 	"time"
+
+	_ "github.com/go-sql-driver/mysql"
+	"github.com/gorilla/mux"
 )
 
 type Category struct {
@@ -21,7 +22,6 @@ type Category struct {
 	MaxTeam      int    `json:"max_team"`
 	DeadLine     string `json:"due_date"`
 }
-
 
 type Input struct {
 	Id int `json:"id"`
@@ -71,7 +71,6 @@ func GetAllCategory(w http.ResponseWriter, r *http.Request) {
 	}
 	function.Response(w, response)
 }
-
 
 // to get particular category details
 func GetDetail(w http.ResponseWriter, r *http.Request) {
@@ -451,13 +450,14 @@ func GetMyEvents(w http.ResponseWriter, r *http.Request) {
 type GetAllECategory struct {
 	CategoryID       int    `json:"id"`
 	CategoryName     string `json:"category_name"`
+	RegisterCount    int    `json:"category_count"`
 	CaDescritpion    string `json:"descritpion"`
 	MaxTeams         int    `json:"max_team"`
 	CategoryIncharge string `json:"incharge"`
 }
 
 func GetAllEVCategory(w http.ResponseWriter, r *http.Request) {
-	rows, err := config.Database.Query("SELECT mc.id,mc.category_name, mc.description,mc.max_team,mc.incharge FROM m_category mc WHERE mc.status = '1'")
+	rows, err := config.Database.Query("SELECT mc.id, mc.category_name, mc.description AS description, mc.max_team, mc.incharge, COUNT(er.event_category_id) AS category_count FROM m_category mc LEFT JOIN event_register er ON er.event_category_id = mc.id WHERE mc.status = '1' GROUP BY mc.id;	")
 
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -469,7 +469,7 @@ func GetAllEVCategory(w http.ResponseWriter, r *http.Request) {
 	for rows.Next() {
 		var team GetAllECategory
 
-		err := rows.Scan(&team.CategoryID, &team.CategoryName, &team.CaDescritpion, &team.MaxTeams, &team.CategoryIncharge)
+		err := rows.Scan(&team.CategoryID, &team.CategoryName, &team.CaDescritpion, &team.MaxTeams, &team.CategoryIncharge, &team.RegisterCount)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
@@ -733,8 +733,6 @@ func InsertEventData(w http.ResponseWriter, r *http.Request) {
 	}
 	function.Response(w, response)
 }
-
-
 
 type CategoryCountR struct {
 	CRcount int `json:"category_count"`
