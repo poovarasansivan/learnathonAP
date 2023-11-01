@@ -42,6 +42,9 @@ func main() {
 	router.HandleFunc("/GetUserRole", category.GetRole).Methods("POST")
 	router.HandleFunc("/GetUserRoleC", category.GetRoleC).Methods("POST")
 	router.HandleFunc("/Insertcategory", category.InsertcategoryData).Methods("POST")
+	router.HandleFunc("/GetUserAdd", category.GetCRole).Methods("POST")
+	router.HandleFunc("/AddEvents", category.InsertEventData).Methods("POST")
+	router.HandleFunc("/GetCategoryC", category.GetCategoryCountR).Methods("POST")
 
 	c := cors.AllowAll()
 

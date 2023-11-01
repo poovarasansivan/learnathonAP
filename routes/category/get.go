@@ -10,6 +10,7 @@ import (
 	"learnathon/function"
 	"log"
 	"net/http"
+	"time"
 )
 
 type Category struct {
@@ -21,11 +22,11 @@ type Category struct {
 	DeadLine     string `json:"due_date"`
 }
 
+
 type Input struct {
 	Id int `json:"id"`
 }
 
-// to get all category details in card
 func GetAllCategory(w http.ResponseWriter, r *http.Request) {
 	var response map[string]interface{}
 	var categories []Category
@@ -71,6 +72,7 @@ func GetAllCategory(w http.ResponseWriter, r *http.Request) {
 	function.Response(w, response)
 }
 
+
 // to get particular category details
 func GetDetail(w http.ResponseWriter, r *http.Request) {
 	var response map[string]interface{}
@@ -87,7 +89,7 @@ func GetDetail(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = config.Database.QueryRow("SELECT mc.id,mc.category_name,mc.description,mu.name,mc.max_team,mee.registration_due FROM event_categories ec INNER JOIN m_category mc ON mc.id = ec.category_id INNER JOIN m_events mee ON mee.id = ec.event_id INNER JOIN m_users mu ON mu.id = mc.incharge WHERE ec.status = '1' AND ec.category_id = ?", input.Id).Scan(&categories.Id, &categories.Name, &categories.Description, &categories.InchargeName, &categories.MaxTeam, &categories.DeadLine)
+	err = config.Database.QueryRow("SELECT mc.id,mc.category_name,mc.description,mu.name,mc.max_team FROM event_categories ec INNER JOIN m_category mc ON mc.id = ec.category_id INNER JOIN m_events mee ON mee.id = ec.event_id INNER JOIN m_users mu ON mu.id = mc.incharge WHERE ec.status = '1' AND ec.category_id = ?", input.Id).Scan(&categories.Id, &categories.Name, &categories.Description, &categories.InchargeName, &categories.MaxTeam)
 
 	if err != nil {
 		if err == sql.ErrNoRows {
@@ -290,7 +292,6 @@ type Events struct {
 	Description string `json:"description"`
 	Incharge    string `json:"name"`
 	EventDate   string `json:"event_date"`
-	DeadLine    string `json:"registration_due"`
 }
 
 func GetAllEvents(w http.ResponseWriter, r *http.Request) {
@@ -298,7 +299,7 @@ func GetAllEvents(w http.ResponseWriter, r *http.Request) {
 	var eventdata []Events
 	var temp Events
 
-	row, err := config.Database.Query("SELECT me.event_name,me.description,me.event_date,me.registration_due,mu.name FROM m_events me INNER JOIN m_users mu ON mu.id = me.incharge WHERE me.status ='1'")
+	row, err := config.Database.Query("SELECT me.event_name,me.description,me.event_date,mu.name FROM m_events me INNER JOIN m_users mu ON mu.id = me.incharge WHERE me.status ='1'")
 
 	if err != nil {
 		if err == sql.ErrNoRows {
@@ -317,7 +318,7 @@ func GetAllEvents(w http.ResponseWriter, r *http.Request) {
 	}
 
 	for row.Next() {
-		err := row.Scan(&temp.EventName, &temp.Description, &temp.EventDate, &temp.DeadLine, &temp.Incharge)
+		err := row.Scan(&temp.EventName, &temp.Description, &temp.EventDate, &temp.Incharge)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
@@ -328,7 +329,6 @@ func GetAllEvents(w http.ResponseWriter, r *http.Request) {
 			Description: temp.Description,
 			Incharge:    temp.Incharge,
 			EventDate:   temp.EventDate,
-			DeadLine:    temp.DeadLine,
 		}
 		eventdata = append(eventdata, tempRow)
 	}
@@ -408,7 +408,6 @@ type MyEvents struct {
 	EventName    string `json:"event_name"`
 	Edesciption  string `json:"description"`
 	EventDate    string `json:"event_date"`
-	DeadLine     string `json:"registration_due"`
 	CategoryName string `json:"category_name"`
 	CDescription string `json:"cdescription"`
 }
@@ -422,12 +421,12 @@ func GetMyEvents(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Invalid request body", http.StatusBadRequest)
 		return
 	}
-	row := config.Database.QueryRow("SELECT er.team_name, er.user_1, u1.name AS user_1_name, er.user_2, u2.name AS user_2_name, er.user_3, u3.name AS user_3_name,mu.name AS eincharge, mu1.name AS cincharge,  me.event_name,  me.description AS edescription,  me.event_date, me.registration_due, mc.category_name, mc.description AS cdescription FROM event_register er INNER JOIN m_events me ON me.id = er.event_category_id INNER JOIN m_category mc ON mc.id = er.event_category_id INNER JOIN m_users u1 ON u1.id = er.user_1 LEFT JOIN m_users u2 ON u2.id = er.user_2 LEFT JOIN m_users u3 ON u3.id = er.user_3 LEFT JOIN m_users mu ON mu.id = me.incharge LEFT JOIN m_users mu1 ON mu1.id=mc.incharge WHERE (er.user_1=? OR er.user_2=? OR er.user_3=?)", requestData.UserID, requestData.UserID, requestData.UserID)
+	row := config.Database.QueryRow("SELECT er.team_name, er.user_1, u1.name AS user_1_name, er.user_2, u2.name AS user_2_name, er.user_3, u3.name AS user_3_name,mu.name AS eincharge, mu1.name AS cincharge,  me.event_name,  me.description AS edescription,  me.event_date, mc.category_name, mc.description AS cdescription FROM event_register er INNER JOIN m_events me ON me.id = er.event_category_id INNER JOIN m_category mc ON mc.id = er.event_category_id INNER JOIN m_users u1 ON u1.id = er.user_1 LEFT JOIN m_users u2 ON u2.id = er.user_2 LEFT JOIN m_users u3 ON u3.id = er.user_3 LEFT JOIN m_users mu ON mu.id = me.incharge LEFT JOIN m_users mu1 ON mu1.id=mc.incharge WHERE (er.user_1=? OR er.user_2=? OR er.user_3=?)", requestData.UserID, requestData.UserID, requestData.UserID)
 
 	var events MyEvents
 	err := row.Scan(
 		&events.TeamName, &events.User1, &events.User1_Name, &events.User2, &events.User2_Name, &events.User3,
-		&events.User3_Name, &events.EIncharge, &events.CIncharge, &events.EventName, &events.Edesciption, &events.EventDate, &events.DeadLine,
+		&events.User3_Name, &events.EIncharge, &events.CIncharge, &events.EventName, &events.Edesciption, &events.EventDate,
 		&events.CategoryName, &events.CDescription,
 	)
 
@@ -650,22 +649,19 @@ func GetRoleC(w http.ResponseWriter, r *http.Request) {
 
 func InsertcategoryData(w http.ResponseWriter, r *http.Request) {
 	var req struct {
-		TeamName     string `json:"teamName"`
-		CategoryName int    `json:"eventCategoryID"`
-		Description  string `json:"description"`
-		Incharge     string `json:"incharge"`
-		MaxTeam      string `json:"max_team"`
-		Created_by   string `json:"created__by"`
+		Category_Name string `json:"category_name"`
+		Description   string `json:"description"`
+		Max_Team      int    `json:"max_team"`
+		Incharge      string `json:"incharge"`
+		Created_by    string `json:"created__by"`
 	}
-
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
-	_, err := config.Database.Exec("INSERT INTO m_category (category_name, description, max_team, incharge,status,created__by, created_on, updated_on) VALUES (?, ?, ?, ?, '1', ?, NOW(), NOW())",
-		req.TeamName, req.CategoryName, req.Description, req.Incharge, req.MaxTeam, req.Created_by)
-	fmt.Print(req.CategoryName)
+	_, err := config.Database.Exec("INSERT INTO m_category (category_name, description, max_team, incharge,status,created_by, created_at, updated_on) VALUES (?, ?, ?, ?, '1', ?, NOW(), NOW())",
+		req.Category_Name, req.Description, req.Max_Team, req.Incharge, req.Created_by)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -673,6 +669,128 @@ func InsertcategoryData(w http.ResponseWriter, r *http.Request) {
 
 	response := map[string]interface{}{
 		"message": "Data inserted successfully",
+	}
+	function.Response(w, response)
+}
+
+type UserCRole struct {
+	Name string `json:"name"`
+}
+
+func GetCRole(w http.ResponseWriter, r *http.Request) {
+	rows, err := config.Database.Query("SELECT name FROM m_users WHERE addcategory_role = '1'")
+	if err != nil {
+		http.Error(w, "Error querying the database", http.StatusInternalServerError)
+		log.Fatal(err)
+		return
+	}
+	defer rows.Close()
+
+	var events []UserCRole
+	for rows.Next() {
+		var user UserCRole
+		if err := rows.Scan(&user.Name); err != nil {
+			http.Error(w, "Error scanning database result", http.StatusInternalServerError)
+			log.Fatal(err)
+			return
+		}
+		events = append(events, user)
+	}
+	response := struct {
+		Events []UserCRole `json:"events"`
+	}{Events: events}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(response)
+}
+
+func InsertEventData(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		EventName   string `json:"event_name"`
+		Description string `json:"description"`
+		Event_date  string `json:"event_date"`
+		Incharge    string `json:"incharge"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	eventDate, err := time.Parse("2006-01-02", req.Event_date)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	_, err = config.Database.Exec("INSERT INTO m_events (event_name, description, event_date, incharge, status, created_at, updated_on) VALUES (?, ?, ?, ?, '1', NOW(), NOW())",
+		req.EventName, req.Description, eventDate, req.Incharge)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	response := map[string]interface{}{
+		"message": "Data inserted successfully",
+	}
+	function.Response(w, response)
+}
+
+
+
+type CategoryCountR struct {
+	CRcount int `json:"category_count"`
+}
+
+type InputR struct {
+	Id int `json:"id"`
+}
+
+func GetCategoryCountR(w http.ResponseWriter, r *http.Request) {
+	var response map[string]interface{}
+	var categories []CategoryCountR
+	var temp CategoryCountR
+
+	// Parse the request to get the 'id'
+	var input InputR
+	err := json.NewDecoder(r.Body).Decode(&input)
+	if err != nil {
+		response = map[string]interface{}{
+			"success": false,
+			"error":   err.Error(),
+		}
+		function.Response(w, response)
+		return
+	}
+
+	row, err := config.Database.Query("SELECT COUNT(*) AS category_count FROM event_register WHERE event_category_id=? AND STATUS='1'", input.Id)
+
+	if err != nil {
+		response = map[string]interface{}{
+			"success": false,
+			"error":   err.Error(),
+		}
+		function.Response(w, response)
+		return
+	}
+
+	for row.Next() {
+		err := row.Scan(&temp.CRcount)
+		if err != nil {
+			response = map[string]interface{}{
+				"success": false,
+				"error":   err.Error(),
+			}
+			function.Response(w, response)
+			return
+		}
+
+		tempRow := CategoryCountR{
+			CRcount: temp.CRcount,
+		}
+		categories = append(categories, tempRow)
+	}
+	response = map[string]interface{}{
+		"success": true,
+		"data":    categories,
 	}
 	function.Response(w, response)
 }
