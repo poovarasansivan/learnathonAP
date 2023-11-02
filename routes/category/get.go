@@ -280,6 +280,7 @@ WHERE
 	for rows.Next() {
 		err := rows.Scan(&team1.User1, &team1.User1name, &team1.User2, &team1.User2name, &team1.User3, &team1.User3name, &team1.TeamName, &team1.ID, &team1.EventCategoryID, &team1.CreatedBy, &team1.CategoryName, &team1.TeamLeaderName, &team1.TeamLeaderMobile)
 		if err != nil {
+			fmt.Print(err)
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
