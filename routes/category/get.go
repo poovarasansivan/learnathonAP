@@ -20,7 +20,6 @@ type Category struct {
 	Description  string `json:"description"`
 	InchargeName string `json:"incharge"`
 	MaxTeam      int    `json:"max_team"`
-	RegisterRole string `json:"registration"`
 }
 
 type Input struct {
@@ -51,7 +50,7 @@ func GetAllCategory(w http.ResponseWriter, r *http.Request) {
 	}
 
 	for row.Next() {
-		err := row.Scan(&temp.Id, &temp.Name, &temp.Description, &temp.InchargeName, &temp.MaxTeam, &temp.RegisterRole)
+		err := row.Scan(&temp.Id, &temp.Name, &temp.Description, &temp.InchargeName, &temp.MaxTeam)
 		if err != nil {
 			panic(err.Error)
 		}
@@ -62,7 +61,6 @@ func GetAllCategory(w http.ResponseWriter, r *http.Request) {
 			Description:  temp.Description,
 			InchargeName: temp.InchargeName,
 			MaxTeam:      temp.MaxTeam,
-			RegisterRole: temp.RegisterRole,
 		}
 		categories = append(categories, tempRow)
 	}
@@ -403,12 +401,13 @@ type MyEvents struct {
 	User2_Name   string `json:"user_2_name"`
 	User3        string `json:"user_3"`
 	User3_Name   string `json:"user_3_name"`
+
 	EIncharge    string `json:"eincharge"`
 	CIncharge    string `json:"cincharge"`
 	EventName    string `json:"event_name"`
-	Edesciption  string `json:"description"`
+	Edesciption  string `json:"edescription"`
 	EventDate    string `json:"event_date"`
-	CategoryName string `json:"category_name"`
+	CategoryName string `json:"cname"`
 	CDescription string `json:"cdescription"`
 	Category_id  int    `json:"event_category_id"`
 }
@@ -423,7 +422,7 @@ func GetMyEvents(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	row := config.Database.QueryRow(
-		"SELECT er.team_name, er.user_1, er.user_2, er.user_3, er.event_category_id, mu1.name AS user_1_name, mu2.name AS user_2_name, mu3.name AS user_3_name, muu.name AS event_incharge, me.event_name, me.description AS edescription, mc.category_name AS cname, mc.description AS cdescription, me.event_date FROM `event_register` er INNER JOIN `event_categories` ec ON ec.`id` = er.`event_category_id` INNER JOIN m_category mc ON mc.id=er.event_category_id INNER JOIN m_events me ON me.id = ec.`event_id` INNER JOIN m_users muu ON muu.id=me.incharge INNER JOIN `m_users` mu1 ON mu1.id = er.`user_1` INNER JOIN m_users mu2 ON mu2.id = er.`user_2` INNER JOIN m_users mu3 ON mu3.id = er.`user_3` WHERE (er.user_1 = ? OR er.user_2 = ? OR er.user_3 = ?)",
+		"SELECT er.team_name, er.user_1, er.user_2, er.user_3, er.event_category_id, mu1.name AS user_1_name, mu2.name AS user_2_name, mu3.name AS user_3_name, muu.name AS event_incharge, me.event_name, me.description AS edescription, mc.category_name AS cname,mc.incharge AS cincharge, mc.description AS cdescription,muc.name AS cincharge, me.event_date FROM `event_register` er INNER JOIN `event_categories` ec ON ec.`id` = er.`event_category_id` INNER JOIN m_category mc ON mc.id=er.event_category_id INNER JOIN m_events me ON me.id = ec.`event_id` INNER JOIN m_users muu ON muu.id=me.incharge INNER JOIN `m_users` mu1 ON mu1.id = er.`user_1` INNER JOIN m_users mu2 ON mu2.id = er.`user_2` INNER JOIN m_users mu3 ON mu3.id = er.`user_3` INNER JOIN m_users muc ON muc.id=mc.incharge WHERE (er.user_1 = ? OR er.user_2 = ? OR er.user_3 = ?))",
 		requestData.UserID, requestData.UserID, requestData.UserID)
 	
 	var events MyEvents
@@ -615,6 +614,9 @@ func GetRole(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(response)
 }
+
+
+
 
 type UsersRoleC struct {
 	ID       string `json:"id"`
