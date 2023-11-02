@@ -10,7 +10,7 @@ var Database *sql.DB
 
 func ConnectDB() {
 	var err error
-	Database, err = sql.Open("mysql", "root:@tcp(127.0.0.1:3306)/learnathon")
+	Database, err = sql.Open("mysql", "root:Learn@321@tcp(localhost)/learnathon")
 	if err != nil {
 		log.Fatal(err)
 	}
