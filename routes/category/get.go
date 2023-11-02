@@ -178,20 +178,20 @@ func InsertData(w http.ResponseWriter, r *http.Request) {
 }
 
 type Team struct {
-	ID               int            `json:"id"`
-	TeamName         string         `json:"team_name"`
-	EventCategoryID  int            `json:"event_category_id"`
-	User1            string         `json:"user_1"`
-	User2            sql.NullString `json:"user_2"`
-	User3            sql.NullString `json:"user_3"`
-	CreatedBy        string         `json:"created_by"`
-	CategoryName     string         `json:"category_name"`
-	TeamLeaderName   string         `json:"name1"`
-	TeamLeaderMobile int            `json:"phone"`
+	ID               int     `json:"id"`
+	TeamName         string  `json:"team_name"`
+	EventCategoryID  int     `json:"event_category_id"`
+	User1            string  `json:"user_1"`
+	User2            *string `json:"user_2"`
+	User3            *string `json:"user_3"`
+	CreatedBy        string  `json:"created_by"`
+	CategoryName     string  `json:"category_name"`
+	TeamLeaderName   string  `json:"name1"`
+	TeamLeaderMobile string     `json:"phone"`
 }
 
 func GetTeams(w http.ResponseWriter, r *http.Request) {
-	rows, err := config.Database.Query("SELECT er.user_3,er.user_2,er.user_1,er.team_name,er.id,er.event_category_id,er.created_by,mc.category_name,mu.name AS name1,mu.phone FROM event_register er INNER JOIN m_category mc ON mc.id=er.event_category_id INNER JOIN m_users mu ON mu.id=er.user_1 WHERE er.status='1'")
+	rows, err := config.Database.Query("SELECT er.user_1,er.user_2,er.user_3,er.team_name,er.id,er.event_category_id,er.created_by,mc.category_name,mu.name AS name1,mu.phone FROM event_register er INNER JOIN m_category mc ON mc.id=er.event_category_id INNER JOIN m_users mu ON mu.id=er.user_1 WHERE er.status='1'")
 
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -230,7 +230,7 @@ type TeamI struct {
 	CreatedBy        string  `json:"created_by"`
 	CategoryName     string  `json:"category_name"`
 	TeamLeaderName   string  `json:"namet"`
-	TeamLeaderMobile string     `json:"phone"`
+	TeamLeaderMobile string  `json:"phone"`
 }
 
 func GetTeamByID(w http.ResponseWriter, r *http.Request) {
@@ -279,7 +279,7 @@ WHERE
 
 	var team1 TeamI
 	for rows.Next() {
-		err := rows.Scan(&team1.User1, &team1.User1name, &team1.User2, &team1.User2name, &team1.User3, &team1.User3name, &team1.TeamName, &team1.ID, &team1.EventCategoryID, &team1.CreatedBy, &team1.CategoryName, &team1.TeamLeaderName, &team1.TeamLeaderMobile)
+		err := rows.Scan(&team1.User1, &team1.User2, &team1.User3, &team1.TeamName, &team1.ID, &team1.EventCategoryID, &team1.CreatedBy, &team1.CategoryName, &team1.TeamLeaderName, &team1.TeamLeaderMobile)
 		if err != nil {
 			fmt.Print(err)
 			http.Error(w, err.Error(), http.StatusInternalServerError)
