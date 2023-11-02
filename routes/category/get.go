@@ -230,7 +230,7 @@ type TeamI struct {
 	CreatedBy        string  `json:"created_by"`
 	CategoryName     string  `json:"category_name"`
 	TeamLeaderName   string  `json:"namet"`
-	TeamLeaderMobile int     `json:"phone"`
+	TeamLeaderMobile string     `json:"phone"`
 }
 
 func GetTeamByID(w http.ResponseWriter, r *http.Request) {
@@ -239,17 +239,17 @@ func GetTeamByID(w http.ResponseWriter, r *http.Request) {
 
 	query := `
     SELECT 
-    er.user_3,
-    mu3.name AS name3,
+    er.user_1,
+    mu1.name AS name1,
     er.user_2,
     mu2.name AS name2,
-    er.user_1,
-    mu.name AS name1,
+    er.user_3,
+    mu3.name AS name3,
     er.team_name,
     er.id,
     er.event_category_id,
     er.created_by,
-    mc.category_name,
+	mc.category_name,
     mu1.name AS namet,
     mu.phone
 FROM 
