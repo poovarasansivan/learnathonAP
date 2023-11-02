@@ -45,7 +45,7 @@ func main() {
 	router.HandleFunc("/GetUserAdd", category.GetCRole).Methods("POST")
 	router.HandleFunc("/AddEvents", category.InsertEventData).Methods("POST")
 	router.HandleFunc("/GetCategoryC", category.GetCategoryCountR).Methods("POST")
-
+	router.HandleFunc("/GetCName", category.GetCategoryName).Methods("GET")
 	c := cors.AllowAll()
 
 	fmt.Print("Running....")

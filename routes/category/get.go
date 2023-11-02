@@ -20,7 +20,7 @@ type Category struct {
 	Description  string `json:"description"`
 	InchargeName string `json:"incharge"`
 	MaxTeam      int    `json:"max_team"`
-	DeadLine     string `json:"due_date"`
+	RegisterRole string `json:"registration"`
 }
 
 type Input struct {
@@ -51,7 +51,7 @@ func GetAllCategory(w http.ResponseWriter, r *http.Request) {
 	}
 
 	for row.Next() {
-		err := row.Scan(&temp.Id, &temp.Name, &temp.Description, &temp.InchargeName, &temp.MaxTeam)
+		err := row.Scan(&temp.Id, &temp.Name, &temp.Description, &temp.InchargeName, &temp.MaxTeam, &temp.RegisterRole)
 		if err != nil {
 			panic(err.Error)
 		}
@@ -62,6 +62,7 @@ func GetAllCategory(w http.ResponseWriter, r *http.Request) {
 			Description:  temp.Description,
 			InchargeName: temp.InchargeName,
 			MaxTeam:      temp.MaxTeam,
+			RegisterRole: temp.RegisterRole,
 		}
 		categories = append(categories, tempRow)
 	}
@@ -88,7 +89,7 @@ func GetDetail(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = config.Database.QueryRow("SELECT mc.id,mc.category_name,mc.description,mu.name,mc.max_team FROM event_categories ec INNER JOIN m_category mc ON mc.id = ec.category_id INNER JOIN m_events mee ON mee.id = ec.event_id INNER JOIN m_users mu ON mu.id = mc.incharge WHERE ec.status = '1' AND ec.category_id = ?", input.Id).Scan(&categories.Id, &categories.Name, &categories.Description, &categories.InchargeName, &categories.MaxTeam)
+	err = config.Database.QueryRow("SELECT mc.id,mc.category_name,mc.description,mu.name,mc.max_team,mc.registration FROM event_categories ec INNER JOIN m_category mc ON mc.id = ec.category_id INNER JOIN m_events mee ON mee.id = ec.event_id INNER JOIN m_users mu ON mu.id = mc.incharge WHERE ec.status = '1' AND ec.category_id = ?", input.Id).Scan(&categories.Id, &categories.Name, &categories.Description, &categories.InchargeName, &categories.MaxTeam)
 
 	if err != nil {
 		if err == sql.ErrNoRows {
@@ -409,6 +410,7 @@ type MyEvents struct {
 	EventDate    string `json:"event_date"`
 	CategoryName string `json:"category_name"`
 	CDescription string `json:"cdescription"`
+	Category_id  int    `json:"event_category_id"`
 }
 
 func GetMyEvents(w http.ResponseWriter, r *http.Request) {
@@ -420,13 +422,13 @@ func GetMyEvents(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Invalid request body", http.StatusBadRequest)
 		return
 	}
-	row := config.Database.QueryRow("SELECT er.team_name, er.user_1, u1.name AS user_1_name, er.user_2, u2.name AS user_2_name, er.user_3, u3.name AS user_3_name,mu.name AS eincharge, mu1.name AS cincharge,  me.event_name,  me.description AS edescription,  me.event_date, mc.category_name, mc.description AS cdescription FROM event_register er INNER JOIN m_events me ON me.id = er.event_category_id INNER JOIN m_category mc ON mc.id = er.event_category_id INNER JOIN m_users u1 ON u1.id = er.user_1 LEFT JOIN m_users u2 ON u2.id = er.user_2 LEFT JOIN m_users u3 ON u3.id = er.user_3 LEFT JOIN m_users mu ON mu.id = me.incharge LEFT JOIN m_users mu1 ON mu1.id=mc.incharge WHERE (er.user_1=? OR er.user_2=? OR er.user_3=?)", requestData.UserID, requestData.UserID, requestData.UserID)
+	row := config.Database.QueryRow("SELECT er.team_name, er.user_1, er.user_2, er.user_3, er.event_category_id, mu1.name AS user_1_name, mu2.name AS user_2_name, mu3.name AS user_3_name, muu.name AS event_incharge, me.event_name, me.description AS edescription, mc.category_name AS cname, mc.description AS cdescription, me.event_date FROM `event_register` er INNER JOIN `event_categories` ec ON ec.`id` = er.`event_category_id` INNER JOIN m_category mc ON mc.id=er.event_category_id INNER JOIN m_events me ON me.id = ec.`event_id` INNER JOIN m_users muu ON muu.id=me.incharge INNER JOIN `m_users` mu1 ON mu1.id = er.`user_1` INNER JOIN m_users mu2 ON mu2.id = er.`user_2` INNER JOIN m_users mu3 ON mu3.id = er.`user_3` WHERE (er.user_1 =? OR er.user_2 = ? OR er.user_3 = ?))", requestData.UserID, requestData.UserID, requestData.UserID)
 
 	var events MyEvents
 	err := row.Scan(
 		&events.TeamName, &events.User1, &events.User1_Name, &events.User2, &events.User2_Name, &events.User3,
 		&events.User3_Name, &events.EIncharge, &events.CIncharge, &events.EventName, &events.Edesciption, &events.EventDate,
-		&events.CategoryName, &events.CDescription,
+		&events.CategoryName, &events.CDescription, &events.Category_id,
 	)
 
 	if err != nil {
@@ -791,4 +793,36 @@ func GetCategoryCountR(w http.ResponseWriter, r *http.Request) {
 		"data":    categories,
 	}
 	function.Response(w, response)
+}
+
+type QuestionCategory struct {
+	Id   int    `json:"id"`
+	Name string `json:"category_name"`
+}
+
+func GetCategoryName(w http.ResponseWriter, r *http.Request) {
+	rows, err := config.Database.Query("SELECT id,category_name FROM m_category WHERE STATUS = '1'")
+	if err != nil {
+		http.Error(w, "Error querying the database", http.StatusInternalServerError)
+		log.Fatal(err)
+		return
+	}
+	defer rows.Close()
+
+	var events []QuestionCategory
+	for rows.Next() {
+		var user QuestionCategory
+		if err := rows.Scan(&user.Id, &user.Name); err != nil {
+			http.Error(w, "Error scanning database result", http.StatusInternalServerError)
+			log.Fatal(err)
+			return
+		}
+		events = append(events, user)
+	}
+	response := struct {
+		Events []QuestionCategory `json:"events"`
+	}{Events: events}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(response)
 }
