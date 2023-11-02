@@ -271,6 +271,7 @@ WHERE
 
 	rows, err := config.Database.Query(query, teamID)
 	if err != nil {
+		fmt.Print(err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
