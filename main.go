@@ -26,7 +26,6 @@ func main() {
 	router.HandleFunc("/api/", routes.Sample).Methods("POST")
 	router.HandleFunc("/api/auth/login", auth.Login).Methods("POST")
 
-<<<<<<< HEAD
 	router.HandleFunc("/category/getAll", category.GetAllCategory).Methods("GET")
 	router.HandleFunc("/category/getDetails", category.GetDetail).Methods("POST")
 	router.HandleFunc("/users/{rollno}", category.GetUserByName).Methods("GET")
@@ -47,7 +46,6 @@ func main() {
 	router.HandleFunc("/AddEvents", category.InsertEventData).Methods("POST")
 	router.HandleFunc("/GetCategoryC", category.GetCategoryCountR).Methods("POST")
 	router.HandleFunc("/GetCName", category.GetCategoryName).Methods("GET")
-=======
 	router.HandleFunc("/api/category/getAll", category.GetAllCategory).Methods("GET")
 	router.HandleFunc("/api/category/getDetails", category.GetDetail).Methods("POST")
 	router.HandleFunc("/api/users/{rollno}", category.GetUserByName).Methods("GET")
@@ -66,9 +64,8 @@ func main() {
 	router.HandleFunc("/api/Insertcategory", category.InsertcategoryData).Methods("POST")
 	router.HandleFunc("/api/GetUserAdd", category.GetCRole).Methods("POST")
 	router.HandleFunc("/api/AddEvents", category.InsertEventData).Methods("POST")
-	router.HandleFunc("/api/GetCategoryC", category.GetCategoryCountR).Methods("POST")
+	router.HandleFunc("/api/GetCategoryC", category.GetCategoryCountR)
 
->>>>>>> ec9c7fbec9ef6e3d9c74a500dd127ef59109a5e1
 	c := cors.AllowAll()
 
 	fmt.Print("Running....")
