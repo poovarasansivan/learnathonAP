@@ -20,7 +20,6 @@ type Category struct {
 	Description  string `json:"description"`
 	InchargeName string `json:"incharge"`
 	MaxTeam      int    `json:"max_team"`
-	Registerstatus int `josn:""`
 }
 
 type CategoryC struct {
