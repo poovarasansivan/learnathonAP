@@ -934,10 +934,24 @@ func InsertQuestions(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Iterate through the questions and insert them one by one
+	// Iterate through the questions and insert or update them one by one
 	for _, question := range req {
-		_, err := tx.Exec("INSERT INTO m_questions (category_id,topics,scenario,question_1,question_1_key,question_2,question_2_key,question_3,question_3_key,created_by,status,created_at,updated_on) VALUES (?,?,?,?,?,?,?,?,?,?,'1',NOW(),NOW())",
-			question.CategoryID, question.Topics, question.Scenario, question.Question1, question.Question_1_Key, question.Question2, question.Question_2_Key, question.Question3, question.Question_3_Key, question.Created_by)
+		var count int
+		err := tx.QueryRow("SELECT COUNT(*) FROM m_questions WHERE topics = ? AND created_by = ?", question.Topics, question.Created_by).Scan(&count)
+		if err != nil {
+			tx.Rollback() // Rollback the transaction if there's an error
+			fmt.Print(err)
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		if count > 0 {
+			_, err = tx.Exec("UPDATE m_questions SET category_id = ?, scenario = ?, question_1 = ?, question_1_key = ?, question_2 = ?, question_2_key = ?, question_3 = ?, question_3_key = ?, status = '1', updated_on = NOW() WHERE topics = ? AND created_by = ?",
+				question.CategoryID, question.Scenario, question.Question1, question.Question_1_Key, question.Question2, question.Question_2_Key, question.Question3, question.Question_3_Key, question.Topics, question.Created_by)
+		} else {
+			_, err = tx.Exec("INSERT INTO m_questions (category_id,topics,scenario,question_1,question_1_key,question_2,question_2_key,question_3,question_3_key,created_by,status,created_at,updated_on) VALUES (?,?,?,?,?,?,?,?,?,?,'1',NOW(),NOW())",
+				question.CategoryID, question.Topics, question.Scenario, question.Question1, question.Question_1_Key, question.Question2, question.Question_2_Key, question.Question3, question.Question_3_Key, question.Created_by)
+		}
 
 		if err != nil {
 			tx.Rollback() // Rollback the transaction if there's an error
@@ -950,16 +964,16 @@ func InsertQuestions(w http.ResponseWriter, r *http.Request) {
 	err = tx.Commit() // Commit the transaction
 	if err != nil {
 		fmt.Print(err)
-
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
 	response := map[string]interface{}{
-		"message": "Data inserted successfully",
+		"message": "Data inserted/updated successfully",
 	}
 	function.Response(w, response)
 }
+
 
 //function to get questions based on user id
 
