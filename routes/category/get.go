@@ -941,6 +941,7 @@ func InsertQuestions(w http.ResponseWriter, r *http.Request) {
 
 		if err != nil {
 			tx.Rollback() // Rollback the transaction if there's an error
+			fmt.Print(err)
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
@@ -948,6 +949,8 @@ func InsertQuestions(w http.ResponseWriter, r *http.Request) {
 
 	err = tx.Commit() // Commit the transaction
 	if err != nil {
+		fmt.Print(err)
+
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
