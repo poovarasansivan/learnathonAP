@@ -3,7 +3,6 @@ package main
 import (
 	"fmt"
 	"learnathon/config"
-	"learnathon/image"
 	"learnathon/routes"
 	"learnathon/routes/auth"
 	"learnathon/routes/category"
@@ -66,7 +65,7 @@ func main() {
 	router.HandleFunc("/api/rubrics/getAll", rubrics.GetRubrics).Methods("GET")
 
 	router.HandleFunc("/api/uploadImage", image.Upload).Methods("POST")
-	router.HandleFunc("/api/serveImage", image.ServeImage).Methods("GET")
+	router.HandleFunc("/api/serveImage/{filename}", image.ServeImage).Methods("GET")
 
 	c := cors.AllowAll()
 

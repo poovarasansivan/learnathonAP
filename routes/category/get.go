@@ -910,12 +910,16 @@ func GetTopics(w http.ResponseWriter, r *http.Request) {
 
 func InsertQuestions(w http.ResponseWriter, r *http.Request) {
 	var req []struct {
-		CategoryID int    `json:"category_id"`
-		Topics     string `json:"topics"`
-		Scenario   string `json:"scenario"`
-		Question1  string `json:"question_1"`
-		Question2  string `json:"question_2"`
-		Created_by string `json:"created_by"`
+		CategoryID     int    `json:"category_id"`
+		Topics         string `json:"topics"`
+		Scenario       string `json:"scenario"`
+		Question1      string `json:"question_1"`
+		Question_1_Key string `json:"question_1_key"`
+		Question2      string `json:"question_2"`
+		Question_2_Key string `json:"question_2_key"`
+		Question3      string `json:"question_3"`
+		Question_3_Key string `json:"question_3_key"`
+		Created_by     string `json:"created_by"`
 	}
 
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -931,8 +935,8 @@ func InsertQuestions(w http.ResponseWriter, r *http.Request) {
 
 	// Iterate through the questions and insert them one by one
 	for _, question := range req {
-		_, err := tx.Exec("INSERT INTO m_questions (category_id,topics,scenario,question_1, question_2,created_by,status,created_at,updated_on) VALUES (?,?,?,?,?,?,'1',NOW(),NOW())",
-			question.CategoryID, question.Topics, question.Scenario, question.Question1, question.Question2, question.Created_by)
+		_, err := tx.Exec("INSERT INTO m_questions (category_id,topics,scenario,question_1,question_1_key,question_2,question_2_key,question_3,question_3_key,created_by,status,created_at,updated_on) VALUES (?,?,?,?,?,?,?,?,?,?,'1',NOW(),NOW())",
+			question.CategoryID, question.Topics, question.Scenario, question.Question1, question.Question_1_Key, question.Question2, question.Question_2_Key, question.Question3, question.Question_3_Key, question.Created_by)
 
 		if err != nil {
 			tx.Rollback() // Rollback the transaction if there's an error
@@ -961,6 +965,8 @@ type MyQuestions struct {
 	Scenario      string `json:"scenario"`
 	Question_1    string `json:"question_1"`
 	Question_2    string `json:"question_2"`
+	Question_3   string `json:"question_3"`
+
 }
 
 func GetMyQuestions(w http.ResponseWriter, r *http.Request) {
@@ -973,7 +979,7 @@ func GetMyQuestions(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	rows, err := config.Database.Query("SELECT mc.category_name,mq.topics,mq.scenario,mq.question_1,mq.question_2 FROM m_questions mq INNER JOIN m_category mc ON mc.id=mq.category_id WHERE mq.status='1' AND mq.created_by=?", requestData.UserID)
+	rows, err := config.Database.Query("SELECT mc.category_name,mq.topics,mq.scenario,mq.question_1,mq.question_2,mq.question_3 FROM m_questions mq INNER JOIN m_category mc ON mc.id=mq.category_id WHERE mq.status='1' AND mq.created_by=?", requestData.UserID)
 
 	if err != nil {
 		http.Error(w, "Error querying the database", http.StatusInternalServerError)
@@ -985,7 +991,7 @@ func GetMyQuestions(w http.ResponseWriter, r *http.Request) {
 	var questions []MyQuestions
 	for rows.Next() {
 		var question MyQuestions
-		err := rows.Scan(&question.Category_Name, &question.Topics, &question.Scenario, &question.Question_1, &question.Question_2)
+		err := rows.Scan(&question.Category_Name, &question.Topics, &question.Scenario, &question.Question_1, &question.Question_2, &question.Question_3)
 		if err != nil {
 			http.Error(w, "Error scanning row", http.StatusInternalServerError)
 			log.Fatal(err)
@@ -1248,22 +1254,24 @@ func InsertQuestionAssigned(w http.ResponseWriter, r *http.Request) {
 }
 
 type GetMyassignQuestion struct {
-	Topics     string  `json:"topics"`
-	Scenario   *string `json:"scenario"`
-	Question_1 *string `json:"question_1"`
-	Question_2 *string `json:"question_2"`
+	Questions_ID int     `json:"id"`
+	Topics       string  `json:"topics"`
+	Scenario     *string `json:"scenario"`
+	Question_1   *string `json:"question_1"`
+	Question_2   *string `json:"question_2"`
+	Question_3   *string `json:"question_3"`
 }
 
 func GetMyassign(w http.ResponseWriter, r *http.Request) {
 	var requestData struct {
-		Assigned_to string `json:"assigned_to"`
+		User_1 string `json:"user_1"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&requestData); err != nil {
 		http.Error(w, "Invalid request body", http.StatusBadRequest)
 		return
 	}
 
-	rows, err := config.Database.Query("SELECT mq.topics,mq.scenario,mq.question_1,mq.question_2 FROM m_questions mq INNER JOIN question_set qs ON qs.question_id=mq.id WHERE qs.assigned_to=?", requestData.Assigned_to)
+	rows, err := config.Database.Query("SELECT mq.id,mq.`topics`,mq.`scenario`,mq.`question_1`,mq.`question_2`,mq.`question_3` FROM question_set qs INNER JOIN event_register er ON er.id =  qs.`question_team_id` INNER JOIN m_questions mq ON mq.`created_by` = er.`user_1`INNER JOIN event_register ev2 ON ev2.`id` = qs.`assigned_team_id` WHERE ev2.`user_1` =?", requestData.User_1)
 
 	if err != nil {
 		http.Error(w, "Error querying the database", http.StatusInternalServerError)
@@ -1275,7 +1283,7 @@ func GetMyassign(w http.ResponseWriter, r *http.Request) {
 	var questions []GetMyassignQuestion
 	for rows.Next() {
 		var question GetMyassignQuestion
-		err := rows.Scan(&question.Topics, &question.Scenario, &question.Question_1, &question.Question_2)
+		err := rows.Scan(&question.Questions_ID, &question.Topics, &question.Scenario, &question.Question_1, &question.Question_2, &question.Question_3)
 		if err != nil {
 			http.Error(w, "Error scanning row", http.StatusInternalServerError)
 			log.Fatal(err)
@@ -1293,15 +1301,28 @@ func GetMyassign(w http.ResponseWriter, r *http.Request) {
 }
 
 func UploadImage(w http.ResponseWriter, r *http.Request) {
-	err := r.ParseMultipartForm(10 << 20) // 10 MB limit
+
+	err := r.ParseForm()
 	if err != nil {
+		fmt.Fprintf(w, "Error parsing form: %s", err)
+		return
+	}
+
+	for key, values := range r.Form {
+		fmt.Fprintf(w, "%s: %s\n", key, values)
+	}
+
+	err = r.ParseMultipartForm(10 << 20) // 10 MB limit
+	if err != nil {
+		fmt.Print("limit")
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
 	// Get the file from the request
-	file, handler, err := r.FormFile("image")
+	file, handler, err := r.FormFile("saveUrl")
 	if err != nil {
+		fmt.Print("img")
 		http.Error(w, "Error Retrieving the File", http.StatusInternalServerError)
 		return
 	}
@@ -1309,10 +1330,11 @@ func UploadImage(w http.ResponseWriter, r *http.Request) {
 
 	// Define the path where you want to save the uploaded images
 	// Make sure this path exists on your server
-	savePath := "C:/xampp/htdocs/api/api/uploads" + handler.Filename
+	savePath := "images/" + handler.Filename
 
 	f, err := os.Create(savePath)
 	if err != nil {
+		fmt.Print("savw")
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -1321,45 +1343,82 @@ func UploadImage(w http.ResponseWriter, r *http.Request) {
 	// Write the file
 	_, err = io.Copy(f, file)
 	if err != nil {
+		fmt.Print("co")
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	imageURL := fmt.Sprintf("http://localhost:3001/%s", handler.Filename)
+	imageURL := fmt.Sprintf("http://localhost:8080/%s", handler.Filename)
 	fmt.Fprintf(w, "{\"imageUrl\": \"%s\"}", imageURL)
 }
 
 //function insert answers
 
 func InsertAnswers(w http.ResponseWriter, r *http.Request) {
-	var req []struct {
-		AnsweredBy   string `json:"answered_by"`
-		Scenario     string `json:"scenario"`
-		Question1    string `json:"question_1"`
-		Question1Ans string `json:"question_1_ans"`
-		Question2    string `json:"question_2"`
-		Question2Ans string `json:"question_2_ans"`
-	}
+    var req []struct {
+        AnsweredBy     string `json:"answered_by"`
+        Questionset_ID int    `json:"questionset_id"`
+        Question1Ans   string `json:"question_1_ans"`
+        Question2Ans   string `json:"question_2_ans"`
+        Question3Ans   string `json:"question_3_ans"`
+    }
 
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
+    if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+        http.Error(w, err.Error(), http.StatusBadRequest)
+        return
+    }
 
-	for _, question := range req {
-		_, err := config.Database.Exec("INSERT INTO m_answers (answered_by,scenario,question_1,question_1_ans,question_2,question_2_ans,status,created_on,updated_on) VALUES(?,?,?,?,?,?,'1',NOW(),NOW())",
-			question.AnsweredBy, question.Scenario, question.Question1, question.Question1Ans, question.Question2, question.Question2Ans)
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
-	}
+    tx, err := config.Database.Begin()
+    if err != nil {
+        http.Error(w, err.Error(), http.StatusInternalServerError)
+        return
+    }
 
-	response := map[string]interface{}{
-		"message": "Data inserted successfully",
-	}
-	function.Response(w, response)
+    for _, question := range req {
+        var count int
+        err := tx.QueryRow("SELECT COUNT(*) FROM m_answers WHERE answered_by=? AND questionset_id=?",
+            question.AnsweredBy, question.Questionset_ID).Scan(&count)
+
+        if err != nil {
+            tx.Rollback()
+            http.Error(w, err.Error(), http.StatusInternalServerError)
+            return
+        }
+
+        if count > 0 {
+            // Data exists, perform an update
+            _, err = tx.Exec(`UPDATE m_answers
+                              SET question_1_ans=?, question_2_ans=?, question_3_ans=?, updated_on=NOW()
+                              WHERE answered_by=? AND questionset_id=?`,
+                question.Question1Ans, question.Question2Ans, question.Question3Ans,
+                question.AnsweredBy, question.Questionset_ID)
+        } else {
+            // Data does not exist, perform an insert
+            _, err = tx.Exec(`INSERT INTO m_answers
+                              (answered_by, questionset_id, question_1_ans, question_2_ans, question_3_ans, status, created_on, updated_on)
+                              VALUES (?, ?, ?, ?, ?, '1', NOW(), NOW())`,
+                question.AnsweredBy, question.Questionset_ID, question.Question1Ans, question.Question2Ans, question.Question3Ans)
+        }
+
+        if err != nil {
+            tx.Rollback()
+            http.Error(w, err.Error(), http.StatusInternalServerError)
+            return
+        }
+    }
+
+    err = tx.Commit()
+    if err != nil {
+        http.Error(w, err.Error(), http.StatusInternalServerError)
+        return
+    }
+
+    response := map[string]interface{}{
+        "message": "Data inserted/updated successfully",
+    }
+    function.Response(w, response)
 }
+
 
 // to get button status
 
@@ -1401,31 +1460,46 @@ func ButtonActionStatus(w http.ResponseWriter, r *http.Request) {
 
 func InsertRubricsData(w http.ResponseWriter, r *http.Request) {
 	var req []struct {
-		CreatedBy  string `json:"created_by"`
-		Question1  string `json:"question_1"`
-		Question2  string `json:"question_2"`
-		Available  string `json:"isavailable_online"`
-		Plagarisam string `json:"plagarisam"`
+		Question_id int    `json:"question_id"`
+		Criteria_ID int    `json:"criteria_id"`
+		Rubrics_ID  int    `json:"selected"`
+		Created_by  string `json:"created_by"`
 	}
 
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		fmt.Print(err)
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
-	tx, err := config.Database.Begin() // Start a transaction
+	tx, err := config.Database.Begin()
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-
-	// Iterate through the questions and insert them one by one
 	for _, question := range req {
-		_, err := tx.Exec("INSERT INTO m_rubrics (created_by,question_1,question_2,isavailable_online,plagarisam,status,created_at,updated_on) VALUES (?,?,?,?,?,'1',NOW(),NOW())",
-			question.CreatedBy, question.Question1, question.Question2, question.Available, question.Plagarisam)
+		var count int
+		err := tx.QueryRow("SELECT COUNT(*) FROM rubrics_log WHERE question_id=? AND criteria_id=? AND created_by=?",
+			question.Question_id, question.Criteria_ID, question.Created_by).Scan(&count)
 
 		if err != nil {
-			tx.Rollback() // Rollback the transaction if there's an error
+			tx.Rollback()
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		if count > 0 {
+			// Data exists, perform an update
+			_, err = tx.Exec("UPDATE rubrics_log SET rubrics_id=? WHERE question_id=? AND criteria_id=? AND created_by=?",
+				question.Rubrics_ID, question.Question_id, question.Criteria_ID, question.Created_by)
+		} else {
+			// Data does not exist, perform an insert
+			_, err = tx.Exec("INSERT INTO rubrics_log (question_id,criteria_id,rubrics_id,created_by) VALUES(?,?,?,?)",
+				question.Question_id, question.Criteria_ID, question.Rubrics_ID, question.Created_by)
+		}
+
+		if err != nil {
+			tx.Rollback()
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
@@ -1438,7 +1512,7 @@ func InsertRubricsData(w http.ResponseWriter, r *http.Request) {
 	}
 
 	response := map[string]interface{}{
-		"message": "Data inserted successfully",
+		"message": "Data inserted/updated successfully",
 	}
 	function.Response(w, response)
 }
