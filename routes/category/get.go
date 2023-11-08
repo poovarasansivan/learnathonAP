@@ -4,10 +4,12 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"io"
 	"learnathon/config"
 	"learnathon/function"
 	"log"
 	"net/http"
+	"os"
 	"time"
 
 	_ "github.com/go-sql-driver/mysql"
@@ -187,7 +189,7 @@ type Team struct {
 	CreatedBy        string  `json:"created_by"`
 	CategoryName     string  `json:"category_name"`
 	TeamLeaderName   string  `json:"name1"`
-	TeamLeaderMobile string     `json:"phone"`
+	TeamLeaderMobile string  `json:"phone"`
 }
 
 func GetTeams(w http.ResponseWriter, r *http.Request) {
@@ -279,7 +281,7 @@ WHERE
 
 	var team1 TeamI
 	for rows.Next() {
-		err := rows.Scan(&team1.User1,&team1.User1name, &team1.User2,&team1.User2name, &team1.User3,&team1.User3name, &team1.TeamName, &team1.ID, &team1.EventCategoryID, &team1.CreatedBy, &team1.CategoryName, &team1.TeamLeaderName, &team1.TeamLeaderMobile)
+		err := rows.Scan(&team1.User1, &team1.User1name, &team1.User2, &team1.User2name, &team1.User3, &team1.User3name, &team1.TeamName, &team1.ID, &team1.EventCategoryID, &team1.CreatedBy, &team1.CategoryName, &team1.TeamLeaderName, &team1.TeamLeaderMobile)
 		if err != nil {
 			fmt.Print(err)
 			http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -836,4 +838,607 @@ func GetCategoryName(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(response)
+}
+
+// Function to get Topics based on category ID
+type Topics struct {
+	TopicsName string `json:"topics"`
+}
+
+type CategoryIdInput struct {
+	CId int `json:"id"`
+}
+
+func GetTopics(w http.ResponseWriter, r *http.Request) {
+	defer func() {
+		if r := recover(); r != nil {
+			response := map[string]interface{}{
+				"success": false,
+				"error":   "Internal Server Error",
+			}
+			function.Response(w, response)
+		}
+	}()
+
+	var response map[string]interface{}
+	var categories []Topics
+	var input CategoryIdInput
+
+	err := json.NewDecoder(r.Body).Decode(&input)
+	if err != nil {
+		response = map[string]interface{}{
+			"success": false,
+			"error":   "Invalid Request",
+		}
+		function.Response(w, response)
+		return
+	}
+
+	rows, err := config.Database.Query("SELECT topics FROM m_topics WHERE STATUS='1' AND category_id=?", input.CId)
+	if err != nil {
+		response = map[string]interface{}{
+			"success": false,
+			"error":   err.Error(),
+		}
+		function.Response(w, response)
+		return
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var category Topics
+		err := rows.Scan(&category.TopicsName)
+		if err != nil {
+			response = map[string]interface{}{
+				"success": false,
+				"error":   err.Error(),
+			}
+			function.Response(w, response)
+			return
+		}
+		categories = append(categories, category)
+	}
+
+	response = map[string]interface{}{
+		"success": true,
+		"data":    categories,
+	}
+	function.Response(w, response)
+}
+
+//function to insert questions
+
+func InsertQuestions(w http.ResponseWriter, r *http.Request) {
+	var req []struct {
+		CategoryID int    `json:"category_id"`
+		Topics     string `json:"topics"`
+		Scenario   string `json:"scenario"`
+		Question1  string `json:"question_1"`
+		Question2  string `json:"question_2"`
+		Created_by string `json:"created_by"`
+	}
+
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	tx, err := config.Database.Begin() // Start a transaction
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	// Iterate through the questions and insert them one by one
+	for _, question := range req {
+		_, err := tx.Exec("INSERT INTO m_questions (category_id,topics,scenario,question_1, question_2,created_by,status,created_at,updated_on) VALUES (?,?,?,?,?,?,'1',NOW(),NOW())",
+			question.CategoryID, question.Topics, question.Scenario, question.Question1, question.Question2, question.Created_by)
+
+		if err != nil {
+			tx.Rollback() // Rollback the transaction if there's an error
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+	}
+
+	err = tx.Commit() // Commit the transaction
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	response := map[string]interface{}{
+		"message": "Data inserted successfully",
+	}
+	function.Response(w, response)
+}
+
+//function to get questions based on user id
+
+type MyQuestions struct {
+	Category_Name string `json:"category_name"`
+	Topics        string `json:"topics"`
+	Scenario      string `json:"scenario"`
+	Question_1    string `json:"question_1"`
+	Question_2    string `json:"question_2"`
+}
+
+func GetMyQuestions(w http.ResponseWriter, r *http.Request) {
+	// Parse request body
+	var requestData struct {
+		UserID string `json:"created_by"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&requestData); err != nil {
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	rows, err := config.Database.Query("SELECT mc.category_name,mq.topics,mq.scenario,mq.question_1,mq.question_2 FROM m_questions mq INNER JOIN m_category mc ON mc.id=mq.category_id WHERE mq.status='1' AND mq.created_by=?", requestData.UserID)
+
+	if err != nil {
+		http.Error(w, "Error querying the database", http.StatusInternalServerError)
+		log.Fatal(err)
+		return
+	}
+	defer rows.Close()
+
+	var questions []MyQuestions
+	for rows.Next() {
+		var question MyQuestions
+		err := rows.Scan(&question.Category_Name, &question.Topics, &question.Scenario, &question.Question_1, &question.Question_2)
+		if err != nil {
+			http.Error(w, "Error scanning row", http.StatusInternalServerError)
+			log.Fatal(err)
+			return
+		}
+		questions = append(questions, question)
+	}
+
+	// Prepare response
+	response := struct {
+		Events []MyQuestions `json:"events"`
+	}{Events: questions}
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(response)
+}
+
+type TotalQuestion struct {
+	CreatorName   string `json:"name"`
+	Category_Name string `json:"category_name"`
+	Topics        string `json:"topics"`
+	Scenario      string `json:"scenario"`
+	Question_1    string `json:"question_1"`
+	Question_2    string `json:"question_2"`
+}
+
+func TotalQuestions(w http.ResponseWriter, r *http.Request) {
+
+	rows, err := config.Database.Query("SELECT mc.category_name,mq.topics,mq.scenario,mq.question_1,mq.question_2,mu.name FROM m_questions mq INNER JOIN m_category mc ON mc.id=mq.category_id INNER JOIN m_users mu ON mu.id=mq.created_by WHERE mq.status='1'")
+
+	if err != nil {
+		http.Error(w, "Error querying the database", http.StatusInternalServerError)
+		log.Fatal(err)
+		return
+	}
+	defer rows.Close()
+
+	var questions []TotalQuestion
+	for rows.Next() {
+		var question TotalQuestion
+		err := rows.Scan(&question.Category_Name, &question.Topics, &question.Scenario, &question.Question_1, &question.Question_2, &question.CreatorName)
+		if err != nil {
+			http.Error(w, "Error scanning row", http.StatusInternalServerError)
+			log.Fatal(err)
+			return
+		}
+		questions = append(questions, question)
+	}
+
+	// Prepare response
+	response := struct {
+		Questions []TotalQuestion `json:"events"` // Corrected field name here
+	}{Questions: questions} // Corrected field name here
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(response)
+}
+
+// funciton to get question based on category ID
+type GetQuestionResponse struct {
+	QuestionID int    `json:"id"`
+	Topics     string `json:"topics"`
+	Scenario   string `json:"scenario"`
+	Question_1 string `json:"question_1"`
+	Question_2 string `json:"question_2"`
+	Created_by string `json:"created_by"`
+}
+
+func GetAllQuestions(w http.ResponseWriter, r *http.Request) {
+	// Parse request body
+	var requestData struct {
+		Category_ID int    `json:"category_id"`
+		Created_by  string `json:"created_by"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&requestData); err != nil {
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	// Modify your SQL query to include the OFFSET clause
+	rows, err := config.Database.Query("SELECT id,topics, scenario, question_1, question_2, created_by FROM m_questions WHERE category_id=? AND STATUS='1' AND assigned=1 AND created_by!=? LIMIT 10", requestData.Category_ID, requestData.Created_by)
+	if err != nil {
+		http.Error(w, "Error querying the database", http.StatusInternalServerError)
+		log.Fatal(err)
+		return
+	}
+	defer rows.Close()
+
+	var questions []GetQuestionResponse
+	for rows.Next() {
+		var question GetQuestionResponse
+		err := rows.Scan(&question.QuestionID, &question.Topics, &question.Scenario, &question.Question_1, &question.Question_2, &question.Created_by)
+		if err != nil {
+			http.Error(w, "Error scanning row", http.StatusInternalServerError)
+			log.Fatal(err)
+			return
+		}
+		questions = append(questions, question)
+	}
+
+	// Prepare response
+	response := struct {
+		Events []GetQuestionResponse `json:"events"`
+	}{Events: questions}
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(response)
+}
+
+type GetMyCategory struct {
+	CategoryID int `json:"event_category_id"`
+}
+
+func GetMyCategorys(w http.ResponseWriter, r *http.Request) {
+	// Parse request body
+	var requestData struct {
+		User_ID string `json:"user_1"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&requestData); err != nil {
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+	row := config.Database.QueryRow("SELECT event_category_id FROM event_register WHERE user_1=? AND STATUS='1'", requestData.User_ID)
+
+	var categoryID int
+	err := row.Scan(&categoryID)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			http.Error(w, "No category found for the user", http.StatusNotFound)
+			return
+		}
+		http.Error(w, "Error querying the database", http.StatusInternalServerError)
+		log.Fatal(err)
+		return
+	}
+
+	// Prepare response
+	response := struct {
+		Event GetMyCategory `json:"event"`
+	}{Event: GetMyCategory{CategoryID: categoryID}}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(response)
+}
+
+// update the assigned id
+func UpdateAssignedStatus(w http.ResponseWriter, r *http.Request) {
+	// Parse request body
+	var requestData struct {
+		QuestionIDs []int `json:"id"`
+		Assigned    int   `json:"assigned"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&requestData); err != nil {
+		http.Error(w, "Failed to decode request body", http.StatusBadRequest)
+		return
+	}
+
+	if len(requestData.QuestionIDs) == 0 {
+		http.Error(w, "No question IDs provided", http.StatusBadRequest)
+		return
+	}
+
+	questionIDString := ""
+	for i, id := range requestData.QuestionIDs {
+		if i > 0 {
+			questionIDString += ","
+		}
+		questionIDString += fmt.Sprintf("%d", id)
+	}
+
+	_, err := config.Database.Exec(
+		"UPDATE m_questions SET assigned=? WHERE id IN ("+questionIDString+")",
+		requestData.Assigned)
+
+	if err != nil {
+		http.Error(w, "Failed to update assigned status in the database", http.StatusInternalServerError)
+		log.Println(err)
+		return
+	}
+	response := struct {
+		Message string `json:"message"`
+	}{Message: "Assigned status updated successfully"}
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(response)
+}
+
+//function to insert the assigned questions
+
+type QuestionAssigned struct {
+	CategoryID int    `json:"category_id"`
+	QuestionID int    `json:"question_id"`
+	AssignedTo string `json:"assigned_to"`
+	Status     string `json:"status"`
+}
+
+type RequestData struct {
+	CategoryID int    `json:"category_id"`
+	QuestionID []int  `json:"question_id"`
+	AssignedTo string `json:"assigned_to"`
+}
+
+func InsertQuestionAssigned(w http.ResponseWriter, r *http.Request) {
+	var requestData RequestData
+
+	if err := json.NewDecoder(r.Body).Decode(&requestData); err != nil {
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	// Check if user already exists in the database
+	var count int
+	err := config.Database.QueryRow("SELECT COUNT(*) FROM question_set WHERE assigned_to = ?",
+		requestData.AssignedTo).Scan(&count)
+
+	if err != nil {
+		http.Error(w, "Error querying the database", http.StatusInternalServerError)
+		log.Fatal(err)
+		return
+	}
+
+	if count > 0 {
+		// User already exists, handle accordingly (e.g., update questions)
+		// You can put your update logic here
+		return // Terminate the function
+	}
+
+	// User does not exist, proceed with insertion
+	tx, err := config.Database.Begin()
+	if err != nil {
+		http.Error(w, "Error beginning transaction", http.StatusInternalServerError)
+		log.Fatal(err)
+		return
+	}
+
+	stmt, err := tx.Prepare("INSERT INTO question_set (category_id, question_id, assigned_to, status) VALUES (?, ?, ?, '1')")
+	if err != nil {
+		tx.Rollback()
+		http.Error(w, "Error preparing statement", http.StatusInternalServerError)
+		log.Fatal(err)
+		return
+	}
+	defer stmt.Close()
+
+	for _, questionID := range requestData.QuestionID {
+		_, err := stmt.Exec(requestData.CategoryID, questionID, requestData.AssignedTo)
+		if err != nil {
+			tx.Rollback()
+			http.Error(w, "Error executing statement", http.StatusInternalServerError)
+			log.Fatal(err)
+			return
+		}
+	}
+
+	err = tx.Commit()
+	if err != nil {
+		http.Error(w, "Error committing transaction", http.StatusInternalServerError)
+		log.Fatal(err)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte("Questions inserted successfully"))
+}
+
+type GetMyassignQuestion struct {
+	Topics     string  `json:"topics"`
+	Scenario   *string `json:"scenario"`
+	Question_1 *string `json:"question_1"`
+	Question_2 *string `json:"question_2"`
+}
+
+func GetMyassign(w http.ResponseWriter, r *http.Request) {
+	var requestData struct {
+		Assigned_to string `json:"assigned_to"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&requestData); err != nil {
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	rows, err := config.Database.Query("SELECT mq.topics,mq.scenario,mq.question_1,mq.question_2 FROM m_questions mq INNER JOIN question_set qs ON qs.question_id=mq.id WHERE qs.assigned_to=?", requestData.Assigned_to)
+
+	if err != nil {
+		http.Error(w, "Error querying the database", http.StatusInternalServerError)
+		log.Fatal(err)
+		return
+	}
+	defer rows.Close()
+
+	var questions []GetMyassignQuestion
+	for rows.Next() {
+		var question GetMyassignQuestion
+		err := rows.Scan(&question.Topics, &question.Scenario, &question.Question_1, &question.Question_2)
+		if err != nil {
+			http.Error(w, "Error scanning row", http.StatusInternalServerError)
+			log.Fatal(err)
+			return
+		}
+		questions = append(questions, question)
+	}
+
+	// Prepare response
+	response := struct {
+		Events []GetMyassignQuestion `json:"events"`
+	}{Events: questions}
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(response)
+}
+
+func UploadImage(w http.ResponseWriter, r *http.Request) {
+	err := r.ParseMultipartForm(10 << 20) // 10 MB limit
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	// Get the file from the request
+	file, handler, err := r.FormFile("image")
+	if err != nil {
+		http.Error(w, "Error Retrieving the File", http.StatusInternalServerError)
+		return
+	}
+	defer file.Close()
+
+	// Define the path where you want to save the uploaded images
+	// Make sure this path exists on your server
+	savePath := "C:/xampp/htdocs/api/api/uploads" + handler.Filename
+
+	f, err := os.Create(savePath)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	defer f.Close()
+
+	// Write the file
+	_, err = io.Copy(f, file)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	imageURL := fmt.Sprintf("http://localhost:3001/%s", handler.Filename)
+	fmt.Fprintf(w, "{\"imageUrl\": \"%s\"}", imageURL)
+}
+
+//function insert answers
+
+func InsertAnswers(w http.ResponseWriter, r *http.Request) {
+	var req []struct {
+		AnsweredBy   string `json:"answered_by"`
+		Scenario     string `json:"scenario"`
+		Question1    string `json:"question_1"`
+		Question1Ans string `json:"question_1_ans"`
+		Question2    string `json:"question_2"`
+		Question2Ans string `json:"question_2_ans"`
+	}
+
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	for _, question := range req {
+		_, err := config.Database.Exec("INSERT INTO m_answers (answered_by,scenario,question_1,question_1_ans,question_2,question_2_ans,status,created_on,updated_on) VALUES(?,?,?,?,?,?,'1',NOW(),NOW())",
+			question.AnsweredBy, question.Scenario, question.Question1, question.Question1Ans, question.Question2, question.Question2Ans)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+	}
+
+	response := map[string]interface{}{
+		"message": "Data inserted successfully",
+	}
+	function.Response(w, response)
+}
+
+// to get button status
+
+type ActionStatusset struct {
+	Id            int `json:"id"`
+	Save_question int `json:"save_question"`
+	Save_answer   int `json:"save_answer"`
+	Save_rubrics  int `json:"save_rubrics"`
+}
+
+func ButtonActionStatus(w http.ResponseWriter, r *http.Request) {
+	rows, err := config.Database.Query("SELECT id,save_question,save_answer,save_rubrics FROM button_status WHERE STATUS='1'")
+	if err != nil {
+		http.Error(w, "Error querying the database", http.StatusInternalServerError)
+		log.Fatal(err)
+		return
+	}
+	defer rows.Close()
+
+	var events []ActionStatusset
+	for rows.Next() {
+		var user ActionStatusset
+		if err := rows.Scan(&user.Id, &user.Save_question, &user.Save_answer, &user.Save_rubrics); err != nil {
+			http.Error(w, "Error scanning database result", http.StatusInternalServerError)
+			log.Fatal(err)
+			return
+		}
+		events = append(events, user)
+	}
+	response := struct {
+		Events []ActionStatusset `json:"events"`
+	}{Events: events}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(response)
+}
+
+//function to insert the rubrics data
+
+func InsertRubricsData(w http.ResponseWriter, r *http.Request) {
+	var req []struct {
+		CreatedBy  string `json:"created_by"`
+		Question1  string `json:"question_1"`
+		Question2  string `json:"question_2"`
+		Available  string `json:"isavailable_online"`
+		Plagarisam string `json:"plagarisam"`
+	}
+
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	tx, err := config.Database.Begin() // Start a transaction
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	// Iterate through the questions and insert them one by one
+	for _, question := range req {
+		_, err := tx.Exec("INSERT INTO m_rubrics (created_by,question_1,question_2,isavailable_online,plagarisam,status,created_at,updated_on) VALUES (?,?,?,?,?,'1',NOW(),NOW())",
+			question.CreatedBy, question.Question1, question.Question2, question.Available, question.Plagarisam)
+
+		if err != nil {
+			tx.Rollback() // Rollback the transaction if there's an error
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+	}
+
+	err = tx.Commit() // Commit the transaction
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	response := map[string]interface{}{
+		"message": "Data inserted successfully",
+	}
+	function.Response(w, response)
 }

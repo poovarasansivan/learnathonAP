@@ -45,7 +45,22 @@ func main() {
 	router.HandleFunc("/api/GetUserAdd", category.GetCRole).Methods("POST")
 	router.HandleFunc("/api/AddEvents", category.InsertEventData).Methods("POST")
 	router.HandleFunc("/api/GetCategoryC", category.GetCategoryCountR)
-	router.HandleFunc("/GetCName", category.GetCategoryName).Methods("GET")
+	router.HandleFunc("/api/GetCName", category.GetCategoryName).Methods("GET")
+	router.HandleFunc("/api/GetTopics", category.GetTopics).Methods("POST")
+	router.HandleFunc("/api/insertQuestion", category.InsertQuestions).Methods("POST")
+	router.HandleFunc("/api/GetMyQuestion", category.GetMyQuestions).Methods("POST")
+	router.HandleFunc("/api/TotalQuestion", category.TotalQuestions).Methods("GET")
+	router.HandleFunc("/api/GetAllQuestion", category.GetAllQuestions).Methods("POST")
+	router.HandleFunc("/api/GetMyCategory", category.GetMyCategorys).Methods("POST")
+	router.HandleFunc("/api/updateAssigned", category.UpdateAssignedStatus).Methods("POST")
+	router.HandleFunc("/api/InsertAssignQuestion", category.InsertQuestionAssigned).Methods("POST")
+	router.HandleFunc("/api/GetMyassignQuestions", category.GetMyassign).Methods("POST")
+	router.HandleFunc("/api/uploadImage", category.UploadImage).Methods("POST")
+	router.HandleFunc("/api/InsertAnswer", category.InsertAnswers).Methods("POST")
+	router.HandleFunc("/api/ButtonStatus", category.ButtonActionStatus).Methods("GET")
+	router.HandleFunc("/api/RubricsData", category.InsertRubricsData).Methods("POST")
+
+
 
 	c := cors.AllowAll()
 
