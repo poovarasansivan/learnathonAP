@@ -3,9 +3,11 @@ package main
 import (
 	"fmt"
 	"learnathon/config"
+	"learnathon/image"
 	"learnathon/routes"
 	"learnathon/routes/auth"
 	"learnathon/routes/category"
+	"learnathon/routes/image"
 	"learnathon/routes/rubrics"
 
 	"net/http"
@@ -56,12 +58,15 @@ func main() {
 	router.HandleFunc("/api/updateAssigned", category.UpdateAssignedStatus).Methods("POST")
 	router.HandleFunc("/api/InsertAssignQuestion", category.InsertQuestionAssigned).Methods("POST")
 	router.HandleFunc("/api/GetMyassignQuestions", category.GetMyassign).Methods("POST")
-	router.HandleFunc("/api/uploadImage", category.UploadImage).Methods("POST")
+	// router.HandleFunc("/api/uploadImage", category.UploadImage).Methods("POST")
 	router.HandleFunc("/api/InsertAnswer", category.InsertAnswers).Methods("POST")
 	router.HandleFunc("/api/ButtonStatus", category.ButtonActionStatus).Methods("GET")
 	router.HandleFunc("/api/RubricsData", category.InsertRubricsData).Methods("POST")
 
 	router.HandleFunc("/api/rubrics/getAll", rubrics.GetRubrics).Methods("GET")
+
+	router.HandleFunc("/api/uploadImage", image.Upload).Methods("POST")
+	router.HandleFunc("/api/serveImage", image.ServeImage).Methods("GET")
 
 	c := cors.AllowAll()
 
