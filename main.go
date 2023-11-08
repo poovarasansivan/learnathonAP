@@ -6,6 +6,7 @@ import (
 	"learnathon/routes"
 	"learnathon/routes/auth"
 	"learnathon/routes/category"
+	"learnathon/routes/rubrics"
 
 	"net/http"
 	"os"
@@ -60,7 +61,7 @@ func main() {
 	router.HandleFunc("/api/ButtonStatus", category.ButtonActionStatus).Methods("GET")
 	router.HandleFunc("/api/RubricsData", category.InsertRubricsData).Methods("POST")
 
-
+	router.HandleFunc("/api/rubrics/getAll", rubrics.GetRubrics).Methods("GET")
 
 	c := cors.AllowAll()
 
