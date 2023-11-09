@@ -9,13 +9,12 @@ import (
 
 func GetRubrics(w http.ResponseWriter, r *http.Request) {
 	var data []Criteria
-	var dataRe []Rubrics
 
 	var temp Criteria
 	var tempRub Rubrics
 	var response map[string]interface{}
 
-	criteria, err := config.Database.Query("SELECT id,NAME FROM m_rubrics_criteria WHERE STATUS ='1'")
+	criteria, err := config.Database.Query("SELECT id,NAME FROM m_rubrics_criteria WHERE STATUS ='1' ")
 	if err != nil {
 		if err == sql.ErrNoRows {
 			response = map[string]interface{}{
@@ -35,6 +34,8 @@ func GetRubrics(w http.ResponseWriter, r *http.Request) {
 	for criteria.Next() {
 		criteria.Scan(&temp.CriteriaID, &temp.CriteriaName)
 		rubrics, _ := config.Database.Query("SELECT id,NAME FROM m_rubrics_questions WHERE criteria_id =? AND  STATUS ='1'", temp.CriteriaID)
+
+		var dataRe []Rubrics
 
 		for rubrics.Next() {
 			rubrics.Scan(&tempRub.RubricsID, &tempRub.RubricsName)
