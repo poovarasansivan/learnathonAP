@@ -1026,17 +1026,20 @@ func GetMyQuestions(w http.ResponseWriter, r *http.Request) {
 }
 
 type TotalQuestion struct {
+	Team_Name     string `jons:"team_name"` 
 	CreatorName   string `json:"name"`
 	Category_Name string `json:"category_name"`
 	Topics        string `json:"topics"`
 	Scenario      string `json:"scenario"`
 	Question_1    string `json:"question_1"`
 	Question_2    string `json:"question_2"`
+	Question_3    string `json:"question_3"`
+
 }
 
 func TotalQuestions(w http.ResponseWriter, r *http.Request) {
 
-	rows, err := config.Database.Query("SELECT mc.category_name,mq.topics,mq.scenario,mq.question_1,mq.question_2,mu.name FROM m_questions mq INNER JOIN m_category mc ON mc.id=mq.category_id INNER JOIN m_users mu ON mu.id=mq.created_by WHERE mq.status='1'")
+	rows, err := config.Database.Query("SELECT er.team_name,mu.name,mc.category_name,mq.topics,mq.scenario,mq.question_1,mq.question_2,mq.question_3 FROM m_questions mq INNER JOIN m_category mc ON mc.id=mq.category_id INNER JOIN m_users mu ON mu.id=mq.created_by INNER JOIN event_register er ON er.user_1=mq.created_by WHERE mq.status='1'")
 
 	if err != nil {
 		http.Error(w, "Error querying the database", http.StatusInternalServerError)
@@ -1048,7 +1051,7 @@ func TotalQuestions(w http.ResponseWriter, r *http.Request) {
 	var questions []TotalQuestion
 	for rows.Next() {
 		var question TotalQuestion
-		err := rows.Scan(&question.Category_Name, &question.Topics, &question.Scenario, &question.Question_1, &question.Question_2, &question.CreatorName)
+		err := rows.Scan(&question.Team_Name,&question.CreatorName,&question.Category_Name, &question.Topics, &question.Scenario, &question.Question_1, &question.Question_2,&question.Question_3)
 		if err != nil {
 			http.Error(w, "Error scanning row", http.StatusInternalServerError)
 			log.Fatal(err)
