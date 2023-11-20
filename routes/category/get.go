@@ -1291,7 +1291,7 @@ func GetMyassign(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	rows, err := config.Database.Query("SELECT mq.id,mq.`topics`,mq.`scenario`,mq.`question_1`,mq.`question_2`,mq.`question_3` FROM question_set qs INNER JOIN event_register er ON er.id =  qs.`question_team_id` INNER JOIN m_questions mq ON mq.`created_by` = er.`user_1`INNER JOIN event_register ev2 ON ev2.`id` = qs.`assigned_team_id` WHERE ev2.`user_1` =?", requestData.User_1)
+	rows, err := config.Database.Query("SELECT mq.id,mq.`topics`,mq.`scenario`,mq.`question_1`,mq.`question_2`,mq.`question_3` FROM question_set qs INNER JOIN event_register er ON er.id =  qs.`question_id` INNER JOIN m_questions mq ON mq.`created_by` = er.`user_1`INNER JOIN event_register ev2 ON ev2.`id` = qs.`assigned_team_id` WHERE ev2.`user_1` =?", requestData.User_1)
 
 	if err != nil {
 		http.Error(w, "Error querying the database", http.StatusInternalServerError)
