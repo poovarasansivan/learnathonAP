@@ -19,7 +19,7 @@ func Upload(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	defer file.Close()
+	defer file.Close() 
 
 	// var response map[string]interface{}
 
